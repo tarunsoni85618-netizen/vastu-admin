@@ -461,7 +461,7 @@ export default function AdminDuePaymentsPage() {
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-700">Payment Mode</label>
                   <div className="mt-1.5 grid grid-cols-3 gap-2">
-                    {["Cash", "UPI / QR", "Online (PayU)"].map((m) => (
+                    {["Cash", "UPI / QR", "Online Payment"].map((m) => (
                       <button
                         key={m}
                         type="button"

@@ -118,7 +118,7 @@ export default function AdminOrdersPage() {
             date: o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : "",
             status: (o.status || "pending").charAt(0).toUpperCase() + (o.status || "pending").slice(1),
             paymentStatus: (o.paymentStatus || "pending").charAt(0).toUpperCase() + (o.paymentStatus || "pending").slice(1),
-            paymentMethod: o.paymentProvider ? (o.paymentProvider === "cod" ? "Cash on Delivery" : "PayU / Online") : "PayU / Online",
+            paymentMethod: o.paymentProvider ? (o.paymentProvider === "cod" ? "Cash on Delivery" : "Online Payment") : "Online Payment",
             subtotal: Number(o.subtotal || o.total || 0),
             shipping: Number(o.shipping || 0),
             discount: Number(o.discount || 0),
@@ -1110,7 +1110,7 @@ function CreateOrderModal({ onClose, onCreated }) {
             <div>
               <label className="text-[11px] font-bold text-[#52525b]">Payment Mode</label>
               <div className="mt-1 grid grid-cols-3 gap-2">
-                {["Cash",  "Online (PayU)"].map((m) => (
+                {["Cash", "UPI / QR", "Online Payment"].map((m) => (
                   <button
                     key={m}
                     type="button"
@@ -1163,6 +1163,12 @@ function CreateOrderModal({ onClose, onCreated }) {
 
 function OrderModal({ order, onClose, onSave, onDownloadInvoice }) {
   const isDelivered = String(order.status || "").toLowerCase() === "delivered";
+  const isPaidOnline =
+    (order.paymentStatus === "Paid" || order.paymentStatus === "paid") &&
+    (order.paymentMethod?.toLowerCase().includes("online") ||
+      order.paymentProvider !== "cod" ||
+      Boolean(order.paymentReference || order.txnid));
+
   const [status, setStatus] = useState(order.status || "Pending");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "Pending");
   const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber || order.notes || "");
@@ -1172,7 +1178,7 @@ function OrderModal({ order, onClose, onSave, onDownloadInvoice }) {
     onSave({
       ...order,
       status: isDelivered ? "Delivered" : status,
-      paymentStatus,
+      paymentStatus: isPaidOnline ? (order.paymentStatus || "Paid") : paymentStatus,
       notes: trackingNumber,
       trackingNumber,
     });
@@ -1425,15 +1431,32 @@ function OrderModal({ order, onClose, onSave, onDownloadInvoice }) {
               </div>
               <div>
                 <label className="text-[11px] font-bold text-[#52525b]">Payment Status</label>
-                <select
-                  value={paymentStatus}
-                  onChange={(e) => setPaymentStatus(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-[#e4e4e7] bg-white px-3 py-2 text-xs font-semibold text-[#18181b]"
-                >
-                  {["Pending", "Paid", "Partial", "Failed"].map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                {isPaidOnline ? (
+                  <div className="mt-1 flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck size={14} className="text-emerald-600" />
+                      Paid Online (Locked)
+                    </span>
+                    <span className="rounded bg-emerald-200/80 px-2 py-0.5 text-[10px] font-mono uppercase text-emerald-900">
+                      Verified
+                    </span>
+                  </div>
+                ) : (
+                  <select
+                    value={paymentStatus}
+                    onChange={(e) => setPaymentStatus(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-[#e4e4e7] bg-white px-3 py-2 text-xs font-semibold text-[#18181b]"
+                  >
+                    {["Pending", "Paid", "Partial", "Failed"].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                )}
+                {isPaidOnline && (
+                  <p className="mt-1 text-[10px] text-zinc-500">
+                    Online payments cannot be modified.
+                  </p>
+                )}
               </div>
             </div>
 

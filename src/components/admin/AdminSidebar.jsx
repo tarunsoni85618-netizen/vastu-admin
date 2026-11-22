@@ -136,7 +136,7 @@ export default function AdminSidebar({ mobileOpen = false, onClose }) {
             <span className="text-xs font-bold">Live System</span>
           </div>
           <p className="text-xs leading-5 text-zinc-400">
-            Connected to live database and PayU payment infrastructure.
+            Connected to live database and payment infrastructure.
           </p>
           <div className="mt-3 flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20 animate-pulse" />

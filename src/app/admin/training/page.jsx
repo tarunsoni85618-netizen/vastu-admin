@@ -1099,7 +1099,7 @@ function ManualEnrollModal({ programs, initialCourse = "", onClose, onEnrolled }
             <div>
               <label className="text-[11px] font-bold text-zinc-700">Payment Mode</label>
               <div className="mt-1 grid grid-cols-3 gap-2">
-                {["Cash", "UPI / QR", "Online (PayU)"].map((m) => (
+                {["Cash", "UPI / QR", "Online Payment"].map((m) => (
                   <button
                     key={m}
                     type="button"

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { getCurrentUser, openLoginPopup } from "@/lib/auth";
+import { openOnlinePayment } from "@/lib/razorpay";
 
 function WhatsAppIcon({ className = "w-5 h-5" }) {
   return (
@@ -110,11 +111,16 @@ export default function TrainingRegistrationModal({
     setStatus("redirecting");
 
     try {
+      const headers = { "Content-Type": "application/json" };
+      if (currentUser?.token) {
+        headers["Authorization"] = `Bearer ${currentUser.token}`;
+      }
+
       const response = await fetch(
-        `${apiBase}/api/payments/payu/initiate-enrollment`,
+        `${apiBase}/api/payments/initiate-enrollment`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           credentials: "include",
           body: JSON.stringify({
             courseTitle: course.title,
@@ -138,24 +144,60 @@ export default function TrainingRegistrationModal({
           }
           return;
         }
-        throw new Error(data.error || "Unable to initiate PayU payment");
+        throw new Error(data.error || "Unable to initiate payment");
       }
 
-      // DIRECT REDIRECT TO PAYU (No intermediate payment options popup!)
-      const formEl = document.createElement("form");
-      formEl.method = "POST";
-      formEl.action = data.action;
-
-      Object.entries(data.params).forEach(([key, value]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = value ?? "";
-        formEl.appendChild(input);
+      openOnlinePayment({
+        keyId: data.keyId,
+        orderId: data.orderId,
+        amount: data.amount,
+        currency: data.currency || "INR",
+        name: "Bhuwneshwari Scientific Vastu",
+        description: `Training (${course.title.slice(0, 40)})`,
+        customer: {
+          name: form.name.trim() || currentUser.name || "Student",
+          email: form.email.trim() || currentUser.email || "",
+          phone: mobileDigits,
+        },
+        onSuccess: async (rzpResponse) => {
+          try {
+            const verifyRes = await fetch(
+              `${apiBase}/api/payments/verify-enrollment`,
+              {
+                method: "POST",
+                headers,
+                credentials: "include",
+                body: JSON.stringify({
+                  ...rzpResponse,
+                  enrollmentId: data.enrollmentId,
+                }),
+              }
+            );
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              setActiveEnrollment(verifyData.enrollment);
+              setStatus("success");
+              if (onEnrollmentSuccess) {
+                onEnrollmentSuccess(verifyData.enrollment);
+              }
+            } else {
+              setError(verifyData.error || "Payment verification failed. Please contact support.");
+              setStatus("idle");
+            }
+          } catch (verErr) {
+            console.error("Verification error:", verErr);
+            window.location.href = `/payment-success?type=training&status=success&enrollmentId=${data.enrollmentId}&course=${encodeURIComponent(course.title)}`;
+          }
+        },
+        onDismiss: () => {
+          setStatus("idle");
+        },
+        onError: (paymentErr) => {
+          console.error("Payment error:", paymentErr);
+          setError(paymentErr.description || paymentErr.message || "Payment was cancelled or failed.");
+          setStatus("idle");
+        },
       });
-
-      document.body.appendChild(formEl);
-      formEl.submit();
     } catch (err) {
       console.error(err);
       setError(err.message || "Something went wrong. Please try again.");
@@ -212,7 +254,7 @@ export default function TrainingRegistrationModal({
               <p className="relative mt-2 text-xs leading-5 text-white/75 sm:text-sm">
                 {status === "success"
                   ? "Your seat is secured. Access your enrollment details and course WhatsApp group below."
-                  : "Review the program fee. When you click Pay, you will be redirected straight to the secure PayU gateway."}
+                  : "Review the program fee. When you click Pay, you will proceed to secure online payment."}
               </p>
 
               <div className="relative mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-[#d9b46d]/30 bg-white/10 px-4 py-1.5 text-xs">
@@ -374,7 +416,7 @@ export default function TrainingRegistrationModal({
                         </div>
                       )}
                       <div className="flex justify-between border-t border-[#ecdcc3] pt-2 text-sm font-bold text-[#21150c]">
-                        <span>Total Payable via PayU</span>
+                        <span>Total Payable Online</span>
                         <span className="text-[#a56b27]">
                           ₹{coursePrice.toLocaleString("en-IN")}
                         </span>
@@ -442,7 +484,7 @@ export default function TrainingRegistrationModal({
                     </p>
                   )}
 
-                  {/* Direct PayU Pay Button */}
+                  {/* Direct Online Pay Button */}
                   <button
                     type="submit"
                     disabled={status === "redirecting"}
@@ -451,12 +493,12 @@ export default function TrainingRegistrationModal({
                     {status === "redirecting" ? (
                       <>
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                        Redirecting to PayU Secure Gateway...
+                        Connecting to Secure Payment...
                       </>
                     ) : (
                       <>
                         <span>
-                          Pay ₹{coursePrice.toLocaleString("en-IN")} via PayU Gateway
+                          Pay ₹{coursePrice.toLocaleString("en-IN")} Securely Online
                         </span>
                         <span>→</span>
                       </>
@@ -464,7 +506,7 @@ export default function TrainingRegistrationModal({
                   </button>
 
                   <p className="text-center text-[11px] text-[#796c5c]">
-                    🔒 Clicking pay will take you directly to PayU to choose UPI, Cards, NetBanking or Wallets.
+                    🔒 Supports UPI, Credit/Debit Cards, NetBanking, and Wallets via 256-bit SSL encryption.
                   </p>
                 </form>
               )}

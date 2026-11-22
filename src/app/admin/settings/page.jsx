@@ -1306,7 +1306,7 @@ export default function AdminSettingsPage() {
                 {activeSection === "payments" && (
                   <>
                     <Notice type="warning">
-                      <strong>Never store payment secrets in browser settings.</strong> Razorpay/Stripe secret keys, webhook secrets and signing credentials belong in server-side environment variables or a secure secret manager. These switches are preferences only until your checkout backend implements them.
+                      <strong>Never store payment secrets in browser settings.</strong> Gateway secret keys, webhook secrets and signing credentials belong in server-side environment variables or a secure secret manager. These switches are preferences only until your checkout backend implements them.
                     </Notice>
                     <Panel title="Checkout methods" description="Select the payment methods you intend to offer." icon={CreditCard}>
                       <div className="py-1">
@@ -1319,7 +1319,7 @@ export default function AdminSettingsPage() {
 
                     <Panel title="Payment gateway preferences" description="Select configured providers. Live processing requires server-side gateway setup." icon={LockKeyhole}>
                       <div className="py-1">
-                        <SettingRow title="Razorpay" description="Use Razorpay only after adding server-side credentials and webhook verification.">
+                        <SettingRow title="Online Gateway" description="Enable or disable online gateway payments.">
                           <Toggle checked={settings.payments.razorpayEnabled} onChange={(value) => update("payments", "razorpayEnabled", value)} />
                         </SettingRow>
                         <SettingRow title="Stripe" description="Use Stripe only after configuring the provider for your business and region.">

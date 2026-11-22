@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { X, Download, ShieldCheck, CheckCircle2, Loader2, Package } from "lucide-react";
 import { useStoreSettings } from "@/lib/settings";
 
@@ -15,6 +15,16 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
   const printRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
   const { supportPhone, supportEmail, fullAddress, gstin: storeGstin } = useStoreSettings();
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") {
+        if (typeof onClose === "function") onClose();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   if (!isOpen || !order) return null;
 
@@ -38,7 +48,7 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
   const halfGst = Math.round((gstAmount / 2) * 100) / 100;
 
   // Rajasthan is seller state (State Code 08).
-  const addr = order.shippingAddress || order.customerSnapshot || {};
+  const addr = order.shippingAddress || order.customerSnapshot || order.customer || {};
   const clientState = String(addr.state || "Rajasthan").trim();
   const isIntraState = !clientState || clientState.toLowerCase().includes("rajasthan");
 
@@ -58,7 +68,7 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
         year: "numeric",
       });
 
-  const sellerGstin = order.sellerGstin || storeGstin || "08ABCDE1234F1Z5";
+  const sellerGstin = "08AANCB4727H1ZG";
   const buyerGstin = order.buyerGstin || addr.buyerGstin || addr.gstin || order.customerSnapshot?.buyerGstin || "";
   const customerName = order.customer || order.customerSnapshot?.name || addr.fullName || addr.name || "Valued Customer";
   const customerPhone = order.phone || order.customerSnapshot?.phone || addr.phone || "";
@@ -81,58 +91,45 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
     setDownloading(true);
     try {
       if (typeof window !== "undefined") {
-        const html2pdfModule = await import("html2pdf.js");
-        const html2pdf = html2pdfModule.default || html2pdfModule;
+        const html2canvasProModule = await import("html2canvas-pro");
+        const html2canvas = html2canvasProModule.default || html2canvasProModule;
+        const { jsPDF } = await import("jspdf");
         const element = printRef.current;
+        if (!element) return;
 
-        const opt = {
-          margin: [8, 8, 8, 8],
-          filename: `${invoiceNo}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            backgroundColor: "#ffffff",
-            onclone: (clonedDoc) => {
-              // Sanitize style tags
-              const styles = clonedDoc.querySelectorAll("style");
-              styles.forEach((s) => {
-                if (s.textContent && (s.textContent.includes("lab(") || s.textContent.includes("oklab("))) {
-                  s.textContent = s.textContent
-                    .replace(/oklab\([^)]+\)/g, "rgb(24, 24, 27)")
-                    .replace(/lab\([^)]+\)/g, "rgb(24, 24, 27)");
-                }
-              });
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+        });
 
-              clonedDoc.documentElement.style.backgroundColor = "#ffffff";
-              clonedDoc.documentElement.style.color = "#18181b";
-              clonedDoc.body.style.backgroundColor = "#ffffff";
-              clonedDoc.body.style.color = "#18181b";
+        const imgData = canvas.toDataURL("image/jpeg", 0.98);
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4",
+        });
 
-              const all = clonedDoc.querySelectorAll("*");
-              all.forEach((el) => {
-                const computed = window.getComputedStyle(el);
-                if (computed.color && (computed.color.includes("lab(") || computed.color.includes("oklab("))) {
-                  el.style.color = "#18181b";
-                }
-                if (computed.backgroundColor && (computed.backgroundColor.includes("lab(") || computed.backgroundColor.includes("oklab("))) {
-                  el.style.backgroundColor = "#ffffff";
-                }
-                if (computed.borderColor && (computed.borderColor.includes("lab(") || computed.borderColor.includes("oklab("))) {
-                  el.style.borderColor = "#e4e4e7";
-                }
-              });
-            },
-          },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        };
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
-        await html2pdf().set(opt).from(element).save();
+        if (imgHeight <= pdfHeight) {
+          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, imgHeight);
+        } else {
+          const scaledWidth = (canvas.width * pdfHeight) / canvas.height;
+          const xOffset = Math.max(0, (pdfWidth - scaledWidth) / 2);
+          pdf.addImage(imgData, "JPEG", xOffset, 0, Math.min(pdfWidth, scaledWidth), pdfHeight);
+        }
+
+        pdf.save(`${invoiceNo}.pdf`);
       }
     } catch (err) {
       console.error("PDF generation failed:", err);
-      alert("Unable to generate PDF. Please try again.");
+      if (typeof window !== "undefined") {
+        window.print();
+      }
     } finally {
       setDownloading(false);
     }
@@ -140,6 +137,11 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
 
   return (
     <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          if (typeof onClose === "function") onClose();
+        }
+      }}
       style={{
         position: "fixed",
         top: 0,
@@ -147,7 +149,8 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
         right: 0,
         bottom: 0,
         zIndex: 9999,
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
+        backgroundColor: "rgba(0, 0, 0, 0.75)",
+        backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -156,6 +159,7 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
       }}
     >
       <div
+        onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
           maxWidth: "850px",
@@ -417,7 +421,7 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
                   PAYMENT INFORMATION
                 </p>
                 <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#52525b" }}>
-                  Payment Method: <strong>{order.paymentMethod || order.paymentProvider || "PayU Online"}</strong>
+                  Payment Method: <strong>{order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment"}</strong>
                 </p>
                 <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#52525b" }}>
                   Transaction Reference: <strong style={{ fontFamily: "monospace" }}>{order.paymentReference || "VERIFIED-SETTLED"}</strong>
@@ -504,6 +508,64 @@ export default function OrderGstInvoiceModal({ isOpen = true, onClose, order }) 
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Modal Bottom Control Bar */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 24px",
+            borderTop: "1px solid #e4e4e7",
+            backgroundColor: "#faf8f4",
+          }}
+        >
+          <span style={{ fontSize: "11px", color: "#71717a", fontFamily: "monospace" }}>
+            Invoice #{invoiceNo}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: "#b45309",
+                color: "#ffffff",
+                padding: "8px 16px",
+                borderRadius: "10px",
+                fontSize: "12px",
+                fontWeight: 600,
+                border: "none",
+                cursor: downloading ? "not-allowed" : "pointer",
+                opacity: downloading ? 0.7 : 1,
+              }}
+            >
+              {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+              <span>{downloading ? "Generating PDF..." : "Download PDF"}</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof onClose === "function") onClose();
+              }}
+              style={{
+                padding: "8px 18px",
+                borderRadius: "10px",
+                border: "1px solid #d4d4d8",
+                backgroundColor: "#ffffff",
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "#27272a",
+                cursor: "pointer",
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>

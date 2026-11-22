@@ -554,7 +554,7 @@ export default function AdminConsultationPage() {
             </span>
           </div>
           <p className="mt-1 text-xs text-zinc-500">
-            Manage online appointment bookings, PayU payments, and live consultation service offerings.
+            Manage online appointment bookings, payments, and live consultation service offerings.
           </p>
         </div>
 
@@ -998,7 +998,7 @@ export default function AdminConsultationPage() {
 
               <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
                 <p className="text-xs text-zinc-500">
-                  New fees take effect immediately across all customer booking cards and PayU gateway orders.
+                  New fees take effect immediately across all customer booking cards and online gateway orders.
                 </p>
                 <button
                   type="submit"
@@ -1494,7 +1494,7 @@ export default function AdminConsultationPage() {
                         <div className="flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
                           <span className="flex items-center gap-1.5">
                             <CheckCircle2 size={14} className="text-emerald-600" />
-                            Paid via PayU (Locked)
+                            Paid Online (Locked)
                           </span>
                           <span className="rounded bg-emerald-200/80 px-2 py-0.5 text-[10px] font-mono uppercase text-emerald-900">
                             Verified
@@ -1873,7 +1873,7 @@ export default function AdminConsultationPage() {
                   <div>
                     <span className="text-[10px] uppercase font-bold text-zinc-400 block">Payment Status</span>
                     <span className="font-bold text-emerald-800">
-                      {viewFormModal.paymentStatus === "Paid" ? "Paid via PayU ✓" : "Payment Pending"} ({money(viewFormModal.amount)})
+                      {viewFormModal.paymentStatus === "Paid" ? "Paid Online ✓" : "Payment Pending"} ({money(viewFormModal.amount)})
                     </span>
                   </div>
                 </div>
